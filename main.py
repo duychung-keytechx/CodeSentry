@@ -290,20 +290,14 @@ def main():
 
         print(f"Repository path: {repo_path}")
         print(f"Analyzing changes: {args.source_branch} -> {args.destination_branch}")
-        print(f"Output directory: {output_dir}\n")
 
         # Ensure branches exist
         print("Verifying branches...")
         source_ref = ensure_branch_exists(repo_path, args.source_branch)
         dest_ref = ensure_branch_exists(repo_path, args.destination_branch)
-        print(f"✓ Source: {source_ref}")
-        print(f"✓ Destination: {dest_ref}\n")
 
         # Step 1: Get full diff and save to file
-        print("="*10)
-        print("STEP 1: Getting git diff")
-        print("="*10)
-
+        print("Getting git diff...")
         full_diff = get_full_diff(repo_path, source_ref, dest_ref)
 
         # Save diff to file for debugging
@@ -311,14 +305,8 @@ def main():
         with open(diff_file, 'w', encoding='utf-8') as f:
             f.write(full_diff)
 
-        print(f"✓ Diff retrieved ({len(full_diff)} characters)")
-        print(f"✓ Saved to: {diff_file}\n")
-
         # Step 2: Analyze diff with Claude to get dependency classes
-        print("="*10)
-        print("STEP 2: Analyzing diff to identify dependency classes")
-        print("="*10)
-
+        print("Analyzing diff to identify dependency classes..")
         classes = analyze_diff_for_dependencies(full_diff)
 
         if classes:
@@ -331,10 +319,7 @@ def main():
 
 
         # Step 3: Checkout destination branch and pack dependencies with infiniloom
-        print("="*10)
-        print("STEP 3: Packing dependency classes with infiniloom")
-        print("="*10)
-
+        print("Packing dependency classes with infiniloom...")
         llm_content = ""
         output_file = None
 
@@ -361,16 +346,8 @@ def main():
                 traceback.print_exc()
                 llm_content = "[Dependency context not available - infiniloom pack failed]"
                 print()
-        else:
-            print("No dependency classes to pack\n")
-            llm_content = "[No dependency classes identified for additional context]"
 
         # Step 4: Create final prompt and get code review from Claude
-        print("="*10)
-        print("STEP 4: Getting code review from Claude")
-        print("="*10)
-
-        # Build the final prompt
         final_prompt = f"""Given the Git Diff and Reference as additional context, please help review Git Diff and provide suggestions if needed.
 ----
 ## Git Diff:
@@ -401,7 +378,7 @@ Please provide a comprehensive code review focusing on:
         review_text = ""
 
         try:
-            print("Sending prompt to Claude Code CLI...")
+            print("Sending prompt to LLM...")
             result = subprocess.run(
                 ["claude", "-p", final_prompt, "--output-format", "json"],
                 capture_output=True,
@@ -422,18 +399,9 @@ Please provide a comprehensive code review focusing on:
                 review_text = json.dumps(claude_response, indent=2)
 
             # Save review to file
-            review_file = os.path.join(output_dir, 'code_review.md')
+            review_file = os.path.join(output_dir, 'code_review_result.md')
             with open(review_file, 'w', encoding='utf-8') as f:
                 f.write(review_text)
-            print(f"✓ Review saved to: {review_file}")
-
-            # Print review to console
-            print("\n" + "="*80)
-            print("CODE REVIEW")
-            print("="*80)
-            print(review_text)
-            print("="*80)
-
         except subprocess.TimeoutExpired:
             print("✗ Claude request timed out after 5 minutes")
             review_text = "[Timeout - no response received]"
@@ -453,9 +421,9 @@ Please provide a comprehensive code review focusing on:
             review_text = f"[Error: {str(e)}]"
 
         # Final summary
-        print("\n" + "="*80)
+        print("\n" + "="*20)
         print("SUMMARY")
-        print("="*80)
+        print("="*20)
         print(f"✓ Diff file: {diff_file}")
         print(f"✓ Dependencies identified: {len(classes)}")
         if output_file and os.path.exists(output_file):
@@ -465,7 +433,7 @@ Please provide a comprehensive code review focusing on:
             print(f"✓ Code review: {review_file}")
         else:
             print(f"✗ Code review: Failed")
-        print("="*80)
+        print("="*20)
 
         # Return data structure
         return {
