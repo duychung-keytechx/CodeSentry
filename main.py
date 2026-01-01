@@ -184,22 +184,74 @@ def read_file_content_from_git(repo_path: str, branch_ref: str, file_path: str) 
 def analyze_diff_for_dependencies(diff_content: str) -> List[str]:
     """Call Claude Code CLI to analyze git diff and suggest dependency classes for context."""
 
-    prompt = f"""Given the git diff output below, analyze the changes and suggest what dependency classes should be added as additional context for code review.
+    prompt = f"""
+    You are a code review assistant specialized in identifying relevant dependencies and context for understanding code changes across multiple programming languages and frameworks.
+    
+    ## Task
+    Analyze the provided git diff output and identify dependencies that should be included as additional context for code review.
+    
+    ## Analysis Focus
+    
+    ### Include:
+    1. **Direct Dependencies**: Classes, modules, functions, or types that are:
+       - Directly imported/used in the changed code
+       - Modified or extended by the changes
+       - Called or instantiated in the diff
+    
+    2. **Contextual Dependencies**: Related components that aid understanding:
+       - Service/repository/utility classes or modules
+       - Domain models, entities, or data structures referenced
+       - Interface definitions or abstract base classes
+       - Configuration classes or modules
+       - Custom types or type definitions
+    
+    ### Exclude:
+    1. **Standard Library Components**:
+       - Java: `java.*`, `javax.*`
+       - .NET: `System.*`, `Microsoft.*`
+       - Python: `builtins`, standard library modules (e.g., `os`, `sys`, `json`)
+       - Rust: `std::*`
+       - JavaScript/TypeScript: built-in objects, Node.js core modules
+    
+    2. **Common Framework Components**:
+       - Java: `org.springframework.*`, `org.hibernate.*`
+       - .NET: `Microsoft.AspNetCore.*`, `Microsoft.EntityFrameworkCore.*`
+       - Python: `django.*`, `flask.*`, `sqlalchemy.*`
+       - Rust: `tokio::*`, `serde::*`, `actix_web::*`
+       - JavaScript/TypeScript: `react`, `express`, `@angular/*`
+    
+    ## Path Format Guidelines
+    - Java: `com/example/package/ClassName`
+    - .NET: `Namespace.SubNamespace.ClassName`
+    - Python: `package.module.ClassName` or `package/module.py`
+    - Rust: `crate::module::Type` or `src/module/file.rs`
+    - JavaScript/TypeScript: `src/package/module.ts` or `@scope/package/module`
+    
+    ## Output Format
+    Return ONLY a valid JSON object with no markdown formatting, explanations, or additional text:    
+    "classes": [
+        "dependency/path/1",
+        "dependency/path/2"
+    ]"        
+    
+    ## Validation Rules
+    - Array must contain at least 0 elements (empty array is valid if no relevant dependencies)
+    - Each path must be a string
+    - Paths should use the appropriate format for the detected language
+    - No duplicate entries
+    - No standard library or common framework paths
+    
+    ## Git Diff Input
+    {diff_content}
 
-Focus on:
-- Classes that are directly used or modified in the diff
-- Related service/repository/utility classes that would help understand the changes
-- Domain models that are referenced
-- Exclude: library classes (java.*, org.springframework.*, etc.) and classes in com/kerb/persistent/domain
-
-Return ONLY a JSON object with this exact structure (no markdown, no explanation):
-{{"classes": ["com/example/Class1", "com/example/Class2"]}}
-
-Git Diff:
-```
-{diff_content}
-```
-"""
+    ## Self-Verification
+    Before returning:
+    1. ✓ Are all included dependencies actually referenced in the diff?
+    2. ✓ Are standard library and common framework components excluded?
+    3. ✓ Are project-specific exclusion paths respected?
+    4. ✓ Is the output valid JSON without markdown formatting?
+    5. ✓ Are paths in the correct format for the detected language?
+    """
 
     print("Calling Claude Code CLI to analyze diff and suggest dependencies...")
 
@@ -364,6 +416,7 @@ Please provide a comprehensive code review focusing on:
 - Potential bugs or issues
 - Performance considerations
 - Security concerns
+- Potential Business logic impact
 - Suggestions for improvements
 """
 
